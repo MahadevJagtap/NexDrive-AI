@@ -7,8 +7,6 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.7
-      - key: PORT
-        value: 8000
       - key: OMP_NUM_THREADS
         value: "1"
       - key: OPENBLAS_NUM_THREADS
@@ -16,4 +14,4 @@ services:
       - key: TORCH_NUM_THREADS
         value: "1"
     plan: free
-    healthCheckPath: /healthz
+    healthCheckPath: /health

@@ -228,24 +228,13 @@ def ensure_models_and_assets() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Ensure baseline YOLO model is downloaded and ready at startup
-    ensure_models_and_assets()
-
-    # Pre-warm baseline detector model in background to eliminate first-frame cold start lag
-    def _warmup():
-        try:
-            baseline_pt = MODELS_DIR / "best.pt"
-            if baseline_pt.exists():
-                from ultralytics import YOLO
-                warm_model = YOLO(str(baseline_pt))
-                dummy = np.zeros((384, 640, 3), dtype=np.uint8)
-                warm_model.predict(dummy, imgsz=640, device="cpu", verbose=False)
-                logger.info("YOLO baseline detector pre-warmed successfully.")
-        except Exception as e:
-            logger.warning(f"Model warm-up note: {e}")
-
-    threading.Thread(target=_warmup, daemon=True).start()
+    # Ensure working output directories exist immediately with zero blocking I/O
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    logger.info("FastAPI application startup complete. Listening on assigned host/port.")
     yield
+    logger.info("FastAPI application shutting down.")
 
 
 app = FastAPI(
@@ -265,30 +254,36 @@ app.add_middleware(
 )
 
 
+@app.get("/health")
 @app.get("/healthz")
-async def healthz() -> str:
-    """Instantaneous ping for cloud health probes."""
-    return "OK"
-
-
 @app.get("/api/health")
-async def api_health() -> Dict[str, Any]:
-    """Lightweight, non-blocking health check for Render and orchestration monitors."""
+async def health_check() -> Dict[str, Any]:
+    """
+    Lightweight, non-blocking health check endpoint.
+    Returns HTTP 200 with status info if model weights are present.
+    Returns HTTP 503 if baseline model checkpoint is missing.
+    """
     baseline_pt = MODELS_DIR / "best.pt"
     finetuned_pt = MODELS_DIR / "finetuned_best.pt"
     sample_video = DATA_DIR / "demo_banner.mp4"
+    is_ready = baseline_pt.exists() and baseline_pt.stat().st_size > 0
 
-    return {
-        "status": "online",
+    payload = {
+        "status": "online" if is_ready else "degraded",
+        "healthy": is_ready,
+        "ready": is_ready,
         "device": "cpu",
         "models": {
-            "baseline_yolov8n": baseline_pt.exists(),
+            "baseline_yolov8n": is_ready,
             "finetuned_yolov8n": finetuned_pt.exists(),
         },
         "sample_video_ready": sample_video.exists(),
         "active_jobs": len(_JOBS),
         "server_time": time.time(),
     }
+    if not is_ready:
+        return JSONResponse(status_code=503, content=payload)
+    return payload
 
 
 @app.get("/api/samples")
@@ -966,7 +961,8 @@ if FRONTEND_DIR.exists():
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    default_port = 8000 if sys.platform == "win32" else 10000
+    port = int(os.environ.get("PORT", default_port))
     print("=" * 70)
     print("AUTONOMOUS DRIVING PERCEPTION STACK -- WEB INTERFACE")
     print("=" * 70)

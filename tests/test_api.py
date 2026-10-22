@@ -26,9 +26,40 @@ def test_api_health_endpoint():
     assert res.status_code == 200
     data = res.json()
     assert data["status"] == "online"
+    assert data["healthy"] is True
+    assert data["ready"] is True
     assert data["device"] == "cpu"
     assert "models" in data
     assert data["models"]["baseline_yolov8n"] is True
+
+
+def test_render_health_endpoint():
+    """Verify /health endpoint probed by Render returns HTTP 200 and healthy flag."""
+    res = client.get("/health")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "online"
+    assert data["healthy"] is True
+    assert data["ready"] is True
+
+
+def test_healthz_endpoint():
+    """Verify standard Kubernetes / container /healthz endpoint returns HTTP 200."""
+    res = client.get("/healthz")
+    assert res.status_code == 200
+    assert res.json()["ready"] is True
+
+
+def test_health_check_degraded_when_model_missing(monkeypatch, tmp_path):
+    """Verify /health returns HTTP 503 if baseline model checkpoint is missing."""
+    import server
+    monkeypatch.setattr(server, "MODELS_DIR", tmp_path / "empty_models")
+    res = client.get("/health")
+    assert res.status_code == 503
+    data = res.json()
+    assert data["ready"] is False
+    assert data["status"] == "degraded"
+    assert data["models"]["baseline_yolov8n"] is False
 
 
 def test_api_samples_endpoint():

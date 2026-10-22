@@ -3,7 +3,7 @@
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 [![PyTorch CPU](https://img.shields.io/badge/PyTorch-2.14_CPU-ee4c2c.svg)](https://pytorch.org/)
 [![Ultralytics YOLOv8](https://img.shields.io/badge/YOLOv8-BDD100K-0aa1a7.svg)](https://github.com/ultralytics/ultralytics)
-[![Tests: 52/52 Passed](https://img.shields.io/badge/Tests-52%2F52_Passed-success.svg)](file:///d:/auto_drive/tests)
+[![Tests: 55/55 Passed](https://img.shields.io/badge/Tests-55%2F55_Passed-success.svg)](file:///d:/auto_drive/tests)
 
 A modular, real-time **Autonomous Driving Perception Stack** engineered for edge and CPU execution on Windows 11. The pipeline fuses deep learning road obstacle detection, multi-object tracking, classical computer vision lane boundary analysis, deep semantic lane segmentation, and monocular relative depth estimation into a unified telemetry Head-Up Display (HUD).
 
@@ -157,7 +157,7 @@ Execute the full automated `pytest` test suite:
 ```powershell
 python -m pytest tests/ -v --junitxml=results/pytest_report.xml
 ```
-*(Result: 52/52 tests passed in ~40s)*
+*(Result: 55/55 tests passed)*
 
 ### 4. Run the Perception CLI
 Process a sample driving video from start to finish:
@@ -240,6 +240,8 @@ The FastAPI backend (`server.py`) provides REST endpoints for automated pipeline
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/` | Serves the modern HTML5/CSS3/Vanilla JS single-page dashboard. |
+| `GET` | `/health` | Lightweight Render health check probe returning HTTP 200 when ready. |
+| `GET` | `/healthz` | Lightweight ping for container health probes. |
 | `GET` | `/api/health` | Health check, CPU device diagnostics, model status, and active job counts. |
 | `GET` | `/api/samples` | Lists pre-packaged highway driving test video sequences. |
 | `POST` | `/api/process` | Submits an uploaded video or preset sample for background perception execution. |
@@ -252,6 +254,42 @@ The FastAPI backend (`server.py`) provides REST endpoints for automated pipeline
 | `GET` | `/favicon.svg` | Serves the NexDrive AI brand vector favicon. |
 
 *Interactive OpenAPI Swagger documentation is available at `http://localhost:8000/docs`.*
+
+---
+
+## ☁️ Cloud Deployment (Render)
+
+The application includes native Render configuration via [`render.yaml`](render.yaml) or manual Web Service setup.
+
+### Render Web Service Settings
+
+| Setting | Configuration Value | Details |
+| :--- | :--- | :--- |
+| **Runtime** | `Python 3` | Built with Python 3.12 (`PYTHON_VERSION=3.12.7`) |
+| **Build Command** | `pip install --upgrade pip && pip install -r requirements.txt && python scripts/download_model.py` | Installs dependencies and downloads required BDD100K YOLO weights (`models/best.pt`) and sample video |
+| **Start Command** | `uvicorn server:app --host 0.0.0.0 --port $PORT` | Binds FastAPI directly to Render's dynamically assigned `$PORT` |
+| **Health Check Path** | `/health` | Instantaneous, non-blocking probe returning HTTP 200 when ready |
+| **Plan / Instance Type** | `Free` (or higher) | Optimized for single-worker CPU execution |
+
+### Required Environment Variables
+
+Configure these in your Render Web Service dashboard under **Environment**:
+
+```bash
+PYTHON_VERSION=3.12.7
+OMP_NUM_THREADS=1
+OPENBLAS_NUM_THREADS=1
+TORCH_NUM_THREADS=1
+```
+
+> [!NOTE]
+> **Do NOT define `PORT` in Render environment variables.** Render assigns `$PORT` dynamically to your service container (typically port 10000). Uvicorn dynamically binds to this port via `--port $PORT`. Overriding `PORT` causes a 502 Bad Gateway error.
+
+### Model File & Asset Requirements
+
+* **`models/best.pt`**: Required BDD100K YOLOv8n detector weights (~5.98 MB). Fetched automatically during the build step via `python scripts/download_model.py`.
+* **`data/demo_banner.mp4`**: Sample driving sequence (~4.3 MB). Fetched automatically during build for instant interactive demo testing.
+
 
 ---
 
