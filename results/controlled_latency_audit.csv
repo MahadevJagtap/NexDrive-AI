@@ -1,0 +1,7 @@
+Scope,Model,Mean Latency (ms),Median Latency (ms),FPS (Mean),FPS (Median)
+Pure Model Forward (Tensor),Baseline (best.pt),70.96,70.86,14.09,14.11
+Pure Model Forward (Tensor),Fine-Tuned (finetuned_best.pt),79.06,71.13,12.65,14.06
+Full Detector Predict + NMS,Baseline (best.pt),43.36,43.37,23.06,23.06
+Full Detector Predict + NMS,Fine-Tuned (finetuned_best.pt),29.23,29.27,34.21,34.17
+Complete Pipeline (YOLO+Track+Lane),Baseline (best.pt),136.9,137.64,7.3,7.27
+Complete Pipeline (YOLO+Track+Lane),Fine-Tuned (finetuned_best.pt),136.15,136.66,7.34,7.32

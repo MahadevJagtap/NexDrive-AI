@@ -1,0 +1,40 @@
+# Autonomous Driving Perception Stack - Tested Dependency Manifest
+# Operating System: Windows 11 (64-bit) | Hardware: Intel CPU / Iris Xe
+# Python Version: 3.12.7
+
+# Core Deep Learning Framework (CPU Wheels)
+torch>=2.2.0
+torchvision>=0.17.0
+
+# Road Object Detection & Tracking
+ultralytics>=8.4.0
+lap>=0.5.13
+
+# Classical Computer Vision & Image Processing
+opencv-python>=4.8.0
+numpy>=1.26.0
+pillow>=10.0.0
+
+# Monocular Depth Estimation
+timm>=1.0.0
+
+# Hugging Face Model Hub & Environment Security
+huggingface_hub>=0.20.0
+python-dotenv>=1.0.0
+
+# Edge Optimization & Model Export
+onnx>=1.15.0
+onnxruntime>=1.17.0
+onnxslim>=0.1.80
+
+# Interactive Demonstration & Analytics Web UI
+fastapi>=0.110.0
+uvicorn>=0.28.0
+python-multipart>=0.0.9
+streamlit>=1.32.0
+matplotlib>=3.8.0
+pandas>=2.0.0
+
+# Hardware Diagnostics, Telemetry & Automated Testing
+psutil>=5.9.0
+pytest>=8.0.0

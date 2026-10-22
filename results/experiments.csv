@@ -1,0 +1,4 @@
+run_id,timestamp,model_name,checkpoint_path,dataset_split,latency_ms,fps,precision,recall,mAP50,mAP50_95,notes,backend
+baseline_eval_20261020,2026-10-20T10:17:38.577148+00:00,yolov8n_bdd100k_baseline,models/best.pt,bdd100k_val_20,88.84,11.26,0.7105,0.6006,0.7299,0.4589,Pretrained baseline evaluation on 20 held-out images,local_experiment_logger
+finetuned_eval_20261020,2026-10-20T10:17:38.577148+00:00,yolov8n_bdd100k_finetuned,models/finetuned_best.pt,bdd100k_val_20,46.48,21.51,0.7672,0.5053,0.6094,0.405,3-epoch CPU fine-tuned model evaluation on 20 held-out images,local_experiment_logger
+onnx_cpu_benchmark_20261020,2026-10-20T10:17:38.590669+00:00,yolov8n_onnx_cpu,models/best.onnx,synthetic_tensor_640x640,56.69,17.64,,,,,"ONNX Runtime CPU benchmark (30 iterations, 10 warmup)",local_experiment_logger

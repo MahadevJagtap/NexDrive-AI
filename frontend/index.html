@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="NexDrive AI — Autonomous Perception Stack. High-performance computer vision platform for real-time obstacle detection, ByteTrack tracking, lane analysis, and relative depth estimation.">
+  <title>NexDrive AI — Autonomous Perception</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="alternate icon" href="/favicon.svg">
+  
+  <!-- Modern Clean Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <img src="/static/favicon.svg" alt="NexDrive AI" class="brand-logo" width="36" height="36">
+        <div class="brand-badge">NexDrive AI</div>
+        <div class="brand-info">
+          <h1 class="brand-title">NexDrive AI <span class="brand-sub">— Autonomous Perception</span></h1>
+          <p class="brand-desc">Real-time vision perception stack & radar telemetry</p>
+        </div>
+      </div>
+
+      <div class="header-status-area">
+        <div id="backend-status" class="status-pill status-disconnected" title="Backend Server Connectivity">
+          <span class="status-dot"></span>
+          <span id="backend-status-text">Connecting...</span>
+        </div>
+        <div class="disclaimer-badge" title="Demonstration purposes only">
+          Demonstration only &bull; Not a safety-certified driving system
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="app-main">
+    <div class="content-wrapper">
+
+      <!-- ================= SETUP WORKFLOW (STEPS 1, 2, 3) ================= -->
+      <section id="setup-section" class="card setup-card">
+        
+        <!-- STEP 1: CHOOSE A VIDEO -->
+        <div class="step-container">
+          <div class="step-heading">
+            <span class="step-num">1</span>
+            <div>
+              <h2 class="step-title">Choose a Video</h2>
+              <p class="step-subtitle">Select a preset highway driving clip or upload your own road footage.</p>
+            </div>
+          </div>
+
+          <!-- Tab Selection: Demo vs Upload -->
+          <div class="segmented-control">
+            <button type="button" id="tab-demo" class="seg-btn active">
+              <span class="seg-icon">🎬</span> Use Demo Video
+            </button>
+            <button type="button" id="tab-upload" class="seg-btn">
+              <span class="seg-icon">📁</span> Upload My Video
+            </button>
+          </div>
+
+          <!-- Option A: Demo Video Details -->
+          <div id="panel-demo" class="source-panel active">
+            <div class="preset-card">
+              <div class="preset-meta-info">
+                <div class="preset-title" id="preset-name">BDD100K Multi-Lane Highway Sequence</div>
+                <div class="preset-specs" id="preset-meta">
+                  Resolution: 2560 &times; 720 &bull; 255 frames @ 30 FPS &bull; 8.51 MB MP4
+                </div>
+              </div>
+              <div class="preset-status">
+                <span class="ready-pill">✓ Available on server</span>
+              </div>
+            </div>
+            <div id="demo-error" class="alert-box alert-error hidden"></div>
+          </div>
+
+          <!-- Option B: Custom Video Upload -->
+          <div id="panel-upload" class="source-panel hidden">
+            <div id="drop-zone" class="drop-zone">
+              <div class="drop-icon">📹</div>
+              <p class="drop-main">Drag and drop your road video here, or <span class="drop-highlight">browse files</span></p>
+              <p class="drop-sub">Supported formats: MP4, AVI, MOV, MKV, WebM (Maximum 150 MB)</p>
+              <input type="file" id="file-input" accept="video/mp4,video/avi,video/quicktime,video/x-matroska,video/webm" class="file-input-hidden">
+            </div>
+
+            <div id="file-selected-box" class="file-box hidden">
+              <div class="file-box-left">
+                <span class="file-symbol">🎥</span>
+                <div>
+                  <div id="selected-file-name" class="file-box-name">driving_scene.mp4</div>
+                  <div id="selected-file-size" class="file-box-size">14.2 MB</div>
+                </div>
+              </div>
+              <button type="button" id="btn-remove-file" class="btn-remove" title="Remove selected file">&times;</button>
+            </div>
+
+            <div id="upload-error" class="alert-box alert-error hidden"></div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- STEP 2: CHOOSE WHAT TO ANALYZE -->
+        <div class="step-container">
+          <div class="step-heading">
+            <span class="step-num">2</span>
+            <div>
+              <h2 class="step-title">Choose What to Analyze</h2>
+              <p class="step-subtitle">Configure the vision modules to run on the road video.</p>
+            </div>
+          </div>
+
+          <!-- Compact Analysis Options Grid -->
+          <div class="options-grid">
+            <label class="option-card" for="opt-detection">
+              <input type="checkbox" id="opt-detection" checked>
+              <div class="option-body">
+                <div class="option-header">
+                  <span class="option-name">Object Detection</span>
+                  <span class="badge-tag">Recommended</span>
+                </div>
+                <p class="option-info">Find cars, trucks, people, and other supported obstacles</p>
+              </div>
+            </label>
+
+            <label class="option-card" for="opt-tracking">
+              <input type="checkbox" id="opt-tracking" checked>
+              <div class="option-body">
+                <div class="option-header">
+                  <span class="option-name">Object Tracking</span>
+                  <span class="badge-tag">Recommended</span>
+                </div>
+                <p class="option-info">Follow detected obstacles with persistent IDs across frames</p>
+              </div>
+            </label>
+
+            <label class="option-card" for="opt-lanes">
+              <input type="checkbox" id="opt-lanes" checked>
+              <div class="option-body">
+                <div class="option-header">
+                  <span class="option-name">Lane Detection</span>
+                  <span class="badge-tag">Recommended</span>
+                </div>
+                <p class="option-info">Identify road-lane boundaries and track lateral vehicle position</p>
+              </div>
+            </label>
+
+            <label class="option-card" for="opt-depth">
+              <input type="checkbox" id="opt-depth">
+              <div class="option-body">
+                <div class="option-header">
+                  <span class="option-name">Relative Depth</span>
+                  <span class="badge-tag tag-optional">Optional</span>
+                </div>
+                <p class="option-info">Estimate relative proximity (note: runs slower on CPU)</p>
+              </div>
+            </label>
+          </div>
+
+          <!-- Collapsed Advanced Settings -->
+          <details class="advanced-details">
+            <summary class="advanced-summary">
+              <span>Advanced Settings</span>
+              <span class="summary-hint">Confidence threshold, frame limits, and models</span>
+            </summary>
+            <div class="advanced-body">
+              <div class="advanced-row">
+                <div class="form-field">
+                  <label for="adv-model" class="field-label">YOLOv8 Detection Weights</label>
+                  <select id="adv-model" class="field-select">
+                    <option value="baseline" selected>Baseline YOLOv8n (General Driving Objects)</option>
+                    <option value="finetuned">Fine-Tuned Mini BDD100K (Autonomous Driving)</option>
+                  </select>
+                </div>
+
+                <div class="form-field">
+                  <label for="adv-max-frames" class="field-label">Frames to Analyze</label>
+                  <select id="adv-max-frames" class="field-select">
+                    <option value="0" selected>Process entire video (Full sequence)</option>
+                    <option value="30">30 frames (~1s quick preview)</option>
+                    <option value="60">60 frames (~2s short preview)</option>
+                    <option value="150">150 frames (~5s clip)</option>
+                    <option value="300">300 frames (~10s clip)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="advanced-row">
+                <div class="form-field">
+                  <div class="field-label-row">
+                    <label for="adv-conf" class="field-label">Confidence Threshold</label>
+                    <span id="adv-conf-val" class="slider-display">0.25</span>
+                  </div>
+                  <input type="range" id="adv-conf" min="0.10" max="0.90" step="0.05" value="0.25" class="field-range">
+                </div>
+
+                <div class="form-field">
+                  <label for="adv-lane-algo" class="field-label">Lane Detection Method</label>
+                  <select id="adv-lane-algo" class="field-select">
+                    <option value="classical" selected>Classical OpenCV (Fast Polynomial Curve Fit)</option>
+                    <option value="segmentation">Deep LRASPP MobileNetV3 (Semantic Lane Segmentation)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- STEP 3: START ANALYSIS -->
+        <div class="step-container action-container">
+          <div class="step-heading">
+            <span class="step-num">3</span>
+            <div>
+              <h2 class="step-title">Start Analysis</h2>
+              <p class="step-subtitle">Run the perception pipeline on the selected video.</p>
+            </div>
+          </div>
+
+          <!-- Depth Speed Notice -->
+          <div id="depth-notice" class="notice-callout hidden">
+            <span class="notice-icon">💡</span>
+            <span class="notice-text">Relative Depth is enabled. Each frame will run MiDaS monocular proximity inference, which takes slightly longer on CPU.</span>
+          </div>
+
+          <div class="submit-action-box">
+            <button type="button" id="btn-analyze" class="btn btn-primary btn-large">
+              <span class="btn-play-icon">▶</span> Analyze Video
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+
+      <!-- ================= PROCESSING PROGRESS VIEW ================= -->
+      <section id="processing-section" class="card processing-card hidden">
+        <div class="processing-header">
+          <div class="spinner"></div>
+          <div>
+            <h2 id="processing-title" class="processing-title">Analyzing Road Video...</h2>
+            <p id="processing-subtitle" class="processing-subtitle">Initializing perception models and pipeline</p>
+          </div>
+        </div>
+
+        <div class="progress-track">
+          <div id="progress-fill" class="progress-fill" style="width: 0%;"></div>
+        </div>
+
+        <div class="progress-stats">
+          <span id="progress-frames">Waiting to start...</span>
+          <span id="progress-percent">0%</span>
+        </div>
+
+        <div class="processing-actions">
+          <button type="button" id="btn-cancel" class="btn btn-danger-outline">Cancel Analysis</button>
+        </div>
+      </section>
+
+
+      <!-- ================= RESULTS VIEW (AFTER COMPLETION) ================= -->
+      <section id="results-section" class="results-wrapper hidden">
+        
+        <!-- Complete Summary Banner -->
+        <div class="results-banner">
+          <div class="results-banner-text">
+            <div class="banner-heading">✓ Analysis Complete</div>
+            <p id="banner-summary" class="banner-sub">Processed 30 frames in 4.2 seconds (7.1 FPS)</p>
+          </div>
+          <div class="banner-actions">
+            <a id="btn-banner-download" class="btn btn-primary" download>
+              ⬇ Download Processed Video
+            </a>
+            <button type="button" id="btn-banner-reset" class="btn btn-secondary">
+              Analyze Another Video
+            </button>
+          </div>
+        </div>
+
+        <!-- A. PROCESSED VIDEO — HIGHEST PRIORITY -->
+        <div class="card video-section-card">
+          <div class="video-card-top">
+            <div class="video-view-tabs">
+              <button type="button" id="tab-view-processed" class="video-tab-btn active">Processed Video</button>
+              <button type="button" id="tab-view-original" class="video-tab-btn">Original Video</button>
+              <button type="button" id="tab-view-split" class="video-tab-btn">Side-by-Side</button>
+            </div>
+            <div id="video-mode-label" class="video-mode-label">Annotated Perception HUD</div>
+          </div>
+
+          <!-- Single Video Player Viewport -->
+          <div id="single-viewport" class="video-viewport">
+            <video id="player-main" controls preload="metadata" playsinline class="responsive-video">
+              Your browser does not support the video tag.
+            </video>
+          </div>
+
+          <!-- Side-by-Side Dual Viewport -->
+          <div id="split-viewport" class="split-viewport hidden">
+            <div class="split-column">
+              <div class="split-title">Original Driving Video</div>
+              <video id="player-split-orig" controls preload="metadata" playsinline class="responsive-video"></video>
+            </div>
+            <div class="split-column">
+              <div class="split-title">Processed Video (HUD Overlay)</div>
+              <video id="player-split-annot" controls preload="metadata" playsinline class="responsive-video"></video>
+            </div>
+          </div>
+
+          <div class="video-card-bottom">
+            <div class="video-help-text">
+              Standard video playback controls: play, pause, seek, volume, and fullscreen.
+            </div>
+            <a id="btn-download-video-card" class="btn btn-primary" download>
+              ⬇ Download Processed Video
+            </a>
+          </div>
+        </div>
+
+        <!-- B. KEY RESULTS -->
+        <div class="results-grid-header">
+          <h3 class="section-heading">Key Results</h3>
+          <p class="section-subheading">Core perception measurements extracted from the road video.</p>
+        </div>
+
+        <div class="key-metrics-grid">
+          <div class="metric-card">
+            <div class="metric-title">Objects Detected</div>
+            <div id="val-detected" class="metric-val">0</div>
+            <div id="sub-detected" class="metric-desc">Cars, trucks, pedestrians</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-title">Objects Tracked</div>
+            <div id="val-tracked" class="metric-val">0</div>
+            <div id="sub-tracked" class="metric-desc">Persistent tracks followed</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-title">Lane Position</div>
+            <div id="val-lanes" class="metric-val">In Lane</div>
+            <div id="sub-lanes" class="metric-desc">Boundary corridor tracking</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-title">Processing Speed</div>
+            <div id="val-speed" class="metric-val">-- FPS</div>
+            <div id="sub-speed" class="metric-desc">Inference throughput</div>
+          </div>
+        </div>
+
+        <!-- C. DETECTED OBJECTS TABLE -->
+        <div class="card table-card">
+          <div class="table-card-header">
+            <div>
+              <h3 class="table-title">Detected Objects</h3>
+              <p class="table-subtitle">Summary of obstacle tracks observed throughout the video sequence.</p>
+            </div>
+            <span id="badge-objects-count" class="badge-count">0 Tracked</span>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Object Type</th>
+                  <th>Confidence</th>
+                  <th>Tracking ID</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="objects-table-body">
+                <tr>
+                  <td colspan="4" class="empty-table-cell">No objects detected in completed video.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- D. ADDITIONAL DETAILS (EXPANDABLE) -->
+        <details class="card details-card">
+          <summary class="details-summary-header">
+            <div>
+              <span class="details-title">Technical Details & Telemetry</span>
+              <span class="details-sub">Expand for lane curvature, relative proximity, event logs, and raw telemetry</span>
+            </div>
+            <span class="details-toggle-icon">▼</span>
+          </summary>
+
+          <div class="details-content">
+            <!-- Safety & Metric Disclaimers -->
+            <div class="advisory-box">
+              <strong>Technical Notice:</strong>
+              Monocular relative depth estimates uncalibrated scene proximity (0.0 to 1.0) and does not represent metric distance in meters. Visual hazard warnings are rule-based advisory indicators and are not safety-certified for vehicle control.
+            </div>
+
+            <!-- Technical Metrics Grid -->
+            <div class="tech-grid">
+              <div class="tech-panel">
+                <h4 class="tech-panel-title">Lane Geometry</h4>
+                <div class="tech-row"><span>Status:</span> <strong id="tech-lane-status">Active</strong></div>
+                <div class="tech-row"><span>Lateral Offset:</span> <strong id="tech-lane-offset">0.0 px</strong></div>
+                <div class="tech-row"><span>Confidence:</span> <strong id="tech-lane-conf">--</strong></div>
+              </div>
+
+              <div class="tech-panel">
+                <h4 class="tech-panel-title">Proximity & Safety</h4>
+                <div class="tech-row"><span>Relative Depth:</span> <strong id="tech-depth-status">Not Enabled</strong></div>
+                <div class="tech-row"><span>Depth Model:</span> <span>Intel MiDaS_small (Normalized)</span></div>
+                <div class="tech-row"><span>Hazard Alert:</span> <strong id="tech-hazard-alert">Clear</strong></div>
+              </div>
+            </div>
+
+            <!-- Event Log -->
+            <div class="event-log-box">
+              <h4 class="event-log-title">Perception Event Log</h4>
+              <div id="event-log-feed" class="event-log-feed">
+                <div class="log-line log-info">[00:00.00] Perception stack initialized.</div>
+              </div>
+            </div>
+
+            <!-- Telemetry Download -->
+            <div class="telemetry-action-row">
+              <a id="btn-download-telemetry" class="btn btn-secondary" download>
+                ⬇ Download Telemetry (JSON)
+              </a>
+            </div>
+          </div>
+        </details>
+
+        <!-- E. NEXT ACTIONS -->
+        <div class="next-actions-bar">
+          <h3 class="next-actions-title">Next Actions</h3>
+          <div class="next-actions-group">
+            <a id="btn-next-download" class="btn btn-primary" download>
+              ⬇ Download Processed Video
+            </a>
+            <button type="button" id="btn-next-reset" class="btn btn-secondary">
+              Analyze Another Video
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="app-footer">
+    <div class="footer-inner">
+      <p>Autonomous Driving Perception Stack &bull; College Capstone & Engineering Portfolio Project</p>
+      <p class="footer-sub">HTML5, CSS3, Vanilla JavaScript &bull; Offline CPU-compatible execution</p>
+    </div>
+  </footer>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

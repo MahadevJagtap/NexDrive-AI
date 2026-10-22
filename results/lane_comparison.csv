@@ -1,0 +1,3 @@
+Method,Model Type,Weights Size (MB),Mean Latency (ms),Median Latency (ms),Throughput (FPS),Lane Center Offset (px),Corridor Area (px),Illumination Resilience,Hardware Footprint
+Classical OpenCV (HLS/HSV+Canny+Hough),Parametric Edge Geometry,0.0,79.97,78.57,12.73,,0,Low-Moderate (Contrast Dependent),Minimal (Pure CPU instructions)
+Deep Segmentation (LRASPP-MobileNetV3),Semantic Neural Segmentation,12.5,149.51,149.09,6.71,138.5,366768,High (Learned Semantic Features),Moderate (Neural activation memory)

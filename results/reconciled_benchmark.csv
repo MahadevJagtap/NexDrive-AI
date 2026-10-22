@@ -1,0 +1,6 @@
+scope,mean_latency_ms,median_latency_ms,throughput_fps,std_latency_ms,model_size_mb
+Pure PyTorch Forward (Tensor 640x640),282.73,274.8,3.54,21.75,5.98
+PyTorch Detector (Image + NMS),116.92,113.5,8.55,45.02,5.98
+ONNX Runtime CPU Forward (Tensor 640x640),112.23,111.12,8.91,68.52,11.7
+Pipeline (YOLO + ByteTrack + Lanes),395.18,394.98,2.53,15.74,5.98
+Pipeline (YOLO + ByteTrack + Lanes + Depth),894.76,872.09,1.12,62.07,87.78

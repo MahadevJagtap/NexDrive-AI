@@ -1,0 +1,3 @@
+runtime,framework_version,model_file,model_size_mb,mean_latency_ms,median_latency_ms,min_latency_ms,max_latency_ms,std_latency_ms,throughput_fps,rss_memory_mb,detections_count,hardware,os
+PyTorch CPU,2.14.1+cpu,best.pt,5.98,27.01,27.08,25.06,29.09,1.04,37.03,370.8,9,"Intel64 Family 6 Model 140 Stepping 1, GenuineIntel",Windows
+ONNX Runtime CPU,1.31.0,best.onnx,11.70,55.07,56.76,45.17,59.90,4.19,18.16,436.7,10,"Intel64 Family 6 Model 140 Stepping 1, GenuineIntel",Windows

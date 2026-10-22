@@ -1,0 +1,3 @@
+Model,Checkpoint,Size (MB),mAP50,mAP50-95,Precision,Recall,Latency (ms),FPS (CPU)
+Baseline (dronefreak/bdd100k-yolov8n),D:\auto_drive\models\best.pt,5.98,0.7299,0.4589,0.7105,0.6006,88.84,11.26
+Fine-Tuned (3-epoch mini BDD100K),D:\auto_drive\models\finetuned_best.pt,5.94,0.6094,0.405,0.7672,0.5053,46.48,21.51

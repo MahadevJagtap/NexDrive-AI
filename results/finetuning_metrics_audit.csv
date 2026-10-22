@@ -1,0 +1,3 @@
+Model,Checkpoint,mAP50,mAP50-95,Precision,Recall,Evaluation Samples,Instances
+Baseline (dronefreak/bdd100k-yolov8n),models/best.pt,0.5909,0.3967,0.6839,0.5098,20,292
+Fine-Tuned (3-epoch mini BDD100K),models/finetuned_best.pt,0.6094,0.405,0.7672,0.5053,20,292
