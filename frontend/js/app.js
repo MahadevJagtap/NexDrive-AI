@@ -382,10 +382,31 @@
       clearInterval(state.pollingInterval);
     }
 
+    let failureCount = 0;
+
     state.pollingInterval = setInterval(async () => {
       try {
         const res = await fetch(`/api/jobs/${jobId}`);
-        if (!res.ok) throw new Error('Job status request failed');
+        if (!res.ok) {
+          failureCount++;
+          if (res.status === 404 && failureCount >= 3) {
+            clearInterval(state.pollingInterval);
+            state.pollingInterval = null;
+            alert('The analysis job is no longer active on the server (the cloud container instance may have restarted). Please click "Start Perception Analysis" to run again.');
+            resetToSetupView();
+            return;
+          }
+          if (failureCount >= 10) {
+            clearInterval(state.pollingInterval);
+            state.pollingInterval = null;
+            alert('Lost connection to the perception server. Please refresh the page and try again.');
+            resetToSetupView();
+            return;
+          }
+          return;
+        }
+
+        failureCount = 0;
         const job = await res.json();
 
         updateProcessingProgress(job);
