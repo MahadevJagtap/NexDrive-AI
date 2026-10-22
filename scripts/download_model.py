@@ -18,18 +18,23 @@ if env_path.exists():
 
 hf_home = os.getenv("HF_HOME", str(PROJECT_ROOT / "models" / "cache"))
 os.environ["HF_HOME"] = hf_home
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 os.makedirs(hf_home, exist_ok=True)
 
 models_dir = Path(os.getenv("MODELS_DIR", str(PROJECT_ROOT / "models")))
 models_dir.mkdir(parents=True, exist_ok=True)
 target_checkpoint = models_dir / "best.pt"
 
-token = os.getenv("HF_ACCESS_TOKEN", "").strip() or None
+# Check HF_TOKEN (standard) or legacy HF_ACCESS_TOKEN
+token = (os.getenv("HF_TOKEN", "") or os.getenv("HF_ACCESS_TOKEN", "")).strip() or None
+
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 
 print("=== Starting Model Verification & Download ===")
 print(f"Target checkpoint path: {target_checkpoint}")
 print(f"HF_HOME cache configured at: {hf_home}")
-print(f"Hugging Face token detected: {'Yes (Length: ' + str(len(token)) + ')' if token else 'No'}")
+print(f"Hugging Face token detected: {'Yes (Length: ' + str(len(token)) + ')' if token else 'No (using public access)'}")
 
 import huggingface_hub
 from huggingface_hub import hf_hub_download, HfApi
@@ -74,7 +79,6 @@ else:
         token=token,
         cache_dir=hf_home,
         local_dir=models_dir,
-        local_dir_use_symlinks=False
     )
     print(f"Download completed successfully: {downloaded_file}")
 

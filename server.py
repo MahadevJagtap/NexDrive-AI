@@ -218,7 +218,6 @@ def ensure_models_and_assets() -> None:
                 repo_id="dronefreak/bdd100k-yolov8n",
                 filename="best.pt",
                 local_dir=str(MODELS_DIR),
-                local_dir_use_symlinks=False,
             )
             if Path(dl_path).exists() and not baseline_pt.exists():
                 shutil.copy(dl_path, baseline_pt)
