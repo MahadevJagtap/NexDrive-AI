@@ -446,16 +446,22 @@ def _run_job_worker(job_id: str) -> None:
 
             frame_idx += 1
 
-            # Downscale frame if needed for fast CPU inference and encoding
             if (frame.shape[1], frame.shape[0]) != (proc_w, proc_h):
                 frame = cv2.resize(frame, (proc_w, proc_h), interpolation=cv2.INTER_AREA)
 
-            result: PipelineFrameResult = pipeline.process_frame(frame, frame_index=frame_idx)
+            with torch.inference_mode():
+                result: PipelineFrameResult = pipeline.process_frame(frame, frame_index=frame_idx)
+
             latencies.append(result.total_latency_ms)
             telemetry_records.append(result.telemetry)
 
             if writer:
                 writer.write(result.annotated_frame)
+
+            # Periodic garbage collection for consistent low memory ceiling during big videos
+            if frame_idx % 25 == 0:
+                import gc
+                gc.collect()
 
             # Class breakdown and frame obstacles
             class_counts: Dict[str, int] = {}
