@@ -5,10 +5,14 @@ Validates ByteTrack multi-object tracking and track ID persistence.
 import pytest
 import cv2
 import numpy as np
+import sys
 from pathlib import Path
-from src.tracking.tracker import RoadObjectTracker, TrackingResult
 
-PROJECT_ROOT = Path("D:/auto_drive")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.tracking.tracker import RoadObjectTracker, TrackingResult
 MODEL_PATH = PROJECT_ROOT / "models" / "best.pt"
 SAMPLE_IMG = PROJECT_ROOT / "data" / "sample_road.jpg"
 

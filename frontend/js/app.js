@@ -316,7 +316,7 @@
     formData.append('enable_lanes', elements.optLanes.checked);
     formData.append('lane_method', elements.advLaneAlgo.value);
     formData.append('enable_depth', elements.optDepth.checked);
-    formData.append('depth_freq', elements.optDepth.checked ? 3 : 5);
+    formData.append('depth_freq', elements.optDepth.checked ? 10 : 10);
     formData.append('conf_thresh', parseFloat(elements.advConf.value));
     formData.append('max_frames', parseInt(elements.advMaxFrames.value, 10));
     formData.append('model_variant', elements.advModel.value);
@@ -340,8 +340,25 @@
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: 'Failed to start job.' }));
-        throw new Error(errorData.detail || 'Server rejected video analysis request.');
+        let errMessage = `Server error (${res.status} ${res.statusText})`;
+        try {
+          const errorData = await res.json();
+          if (errorData && errorData.detail) {
+            errMessage = typeof errorData.detail === 'string'
+              ? errorData.detail
+              : JSON.stringify(errorData.detail);
+          }
+        } catch {
+          try {
+            const rawText = await res.text();
+            if (rawText && rawText.trim().length > 0 && rawText.length < 250) {
+              errMessage = rawText.trim();
+            } else if (res.status === 502 || res.status === 503 || res.status === 504) {
+              errMessage = 'Render service is currently waking up or restarting. Please wait 15 seconds and try again.';
+            }
+          } catch {}
+        }
+        throw new Error(errMessage);
       }
 
       const jobData = await res.json();

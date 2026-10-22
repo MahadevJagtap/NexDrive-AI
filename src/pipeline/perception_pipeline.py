@@ -488,7 +488,8 @@ class PerceptionPipeline:
         }
 
         # Save telemetry log to JSON if results folder exists
-        results_dir = Path("D:/auto_drive/results")
+        project_root = Path(__file__).resolve().parent.parent.parent
+        results_dir = project_root / "results"
         if results_dir.exists():
             log_path = results_dir / "pipeline_telemetry.json"
             with open(log_path, "w", encoding="utf-8") as f:

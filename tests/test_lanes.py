@@ -5,11 +5,15 @@ Covers classical computer vision lane detection, polygon fitting, and edge cases
 import pytest
 import cv2
 import numpy as np
+import sys
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from src.lanes.lane_detector import OpenCVLaneDetector, LaneDetectionResult
 from src.lanes.segmentation_lane_detector import SegmentationLaneDetector
-
-PROJECT_ROOT = Path("D:/auto_drive")
 SAMPLE_IMG = PROJECT_ROOT / "data" / "sample_road.jpg"
 
 def test_lane_detector_initialization():

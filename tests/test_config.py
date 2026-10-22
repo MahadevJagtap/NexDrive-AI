@@ -6,12 +6,14 @@ import os
 from pathlib import Path
 from dotenv import dotenv_values, load_dotenv
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 def test_env_file_exists():
-    env_path = Path("D:/auto_drive/.env")
+    env_path = PROJECT_ROOT / ".env"
     assert env_path.exists(), ".env file must exist in project root"
 
 def test_env_loading_security():
-    env_path = Path("D:/auto_drive/.env")
+    env_path = PROJECT_ROOT / ".env"
     values = dotenv_values(dotenv_path=env_path)
     
     # Verify core path variables exist

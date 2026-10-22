@@ -41,6 +41,7 @@ models/finetune_runs/
 *.webm
 data/*
 !data/.gitkeep
+!data/demo_banner.mp4
 
 # Results and Job Artifacts
 results/jobs/

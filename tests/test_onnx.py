@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import onnxruntime as ort
 
-PROJECT_ROOT = Path("D:/auto_drive")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ONNX_MODEL_PATH = PROJECT_ROOT / "models" / "best.onnx"
 
 def test_onnx_model_file_exists():

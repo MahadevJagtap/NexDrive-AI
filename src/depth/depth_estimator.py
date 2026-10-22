@@ -53,7 +53,8 @@ class MonocularDepthEstimator:
         if cache_dir:
             hub_dir = Path(cache_dir).resolve()
         else:
-            hub_dir = Path("D:/auto_drive/models/cache/hub").resolve()
+            PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+            hub_dir = (PROJECT_ROOT / "models" / "cache" / "hub").resolve()
 
         hub_dir.mkdir(parents=True, exist_ok=True)
         torch.hub.set_dir(str(hub_dir))

@@ -5,10 +5,14 @@ Verifies relative uncalibrated depth map output and object proximity association
 import pytest
 import cv2
 import numpy as np
+import sys
 from pathlib import Path
-from src.depth.depth_estimator import MonocularDepthEstimator, DepthResult
 
-PROJECT_ROOT = Path("D:/auto_drive")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.depth.depth_estimator import MonocularDepthEstimator, DepthResult
 SAMPLE_IMG = PROJECT_ROOT / "data" / "sample_road.jpg"
 
 def test_depth_estimator_initialization():

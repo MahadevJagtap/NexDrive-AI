@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 import uuid
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -188,10 +189,39 @@ def stream_video_file(file_path: Path, request: Request, download: bool = False,
     )
 
 
+def ensure_models_and_assets() -> None:
+    """Ensures required baseline model checkpoint exists, auto-downloading if necessary."""
+    baseline_pt = MODELS_DIR / "best.pt"
+    if not baseline_pt.exists() or baseline_pt.stat().st_size == 0:
+        logger.info("Baseline model checkpoint (best.pt) not found. Downloading from Hugging Face...")
+        try:
+            from huggingface_hub import hf_hub_download
+            MODELS_DIR.mkdir(parents=True, exist_ok=True)
+            dl_path = hf_hub_download(
+                repo_id="dronefreak/bdd100k-yolov8n",
+                filename="best.pt",
+                local_dir=str(MODELS_DIR),
+                local_dir_use_symlinks=False,
+            )
+            if Path(dl_path).exists() and not baseline_pt.exists():
+                shutil.copy(dl_path, baseline_pt)
+            logger.info(f"Successfully downloaded models/best.pt ({baseline_pt.stat().st_size} bytes)")
+        except Exception as e:
+            logger.error(f"Failed to auto-download models/best.pt: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Ensure baseline YOLO model is downloaded and ready at startup
+    ensure_models_and_assets()
+    yield
+
+
 app = FastAPI(
     title="Autonomous Driving Perception Stack API",
     description="REST backend for real-time road perception, obstacle tracking, lane analysis, and relative depth.",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 # Optional CORS for development flexibility
@@ -256,6 +286,8 @@ def get_sample_videos() -> List[Dict[str, Any]]:
     return samples
 
 
+
+
 def _run_job_worker(job_id: str) -> None:
     """Background worker thread for processing a perception job."""
     with _JOBS_LOCK:
@@ -264,6 +296,8 @@ def _run_job_worker(job_id: str) -> None:
             return
         job["status"] = "processing"
         job["start_time"] = time.perf_counter()
+
+    ensure_models_and_assets()
 
     cfg_dict = job["config"]
     input_path = job["input_path"]
@@ -278,13 +312,16 @@ def _run_job_worker(job_id: str) -> None:
     else:
         model_path = str(MODELS_DIR / "best.pt")
 
+    # Safety: ensure depth frequency is not too aggressive on CPU (minimum 8 frames between depth passes)
+    depth_freq = max(8, cfg_dict.get("depth_freq", 8))
+
     config = PipelineConfig(
         model_path=model_path,
         enable_tracking=cfg_dict.get("enable_tracking", True),
         enable_lanes=cfg_dict.get("enable_lanes", True),
         lane_method=cfg_dict.get("lane_method", "classical"),
         enable_depth=cfg_dict.get("enable_depth", False),
-        depth_frequency=cfg_dict.get("depth_freq", 5),
+        depth_frequency=depth_freq,
         conf_thresh=cfg_dict.get("conf_thresh", 0.25),
         imgsz=cfg_dict.get("imgsz", 640),
         device=cfg_dict.get("device", "cpu"),
@@ -306,28 +343,52 @@ def _run_job_worker(job_id: str) -> None:
     else:
         fps_in = float(raw_fps)
 
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_in_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     if total_in_frames <= 0:
         total_in_frames = 0
 
+    # High-throughput resolution capping: Cap processing resolution to 1280px max width for fast CPU execution
+    MAX_PROC_WIDTH = 1280
+    if orig_width > MAX_PROC_WIDTH:
+        scale = MAX_PROC_WIDTH / float(orig_width)
+        proc_w = int(orig_width * scale)
+        proc_h = int(orig_height * scale)
+        proc_w = proc_w - (proc_w % 2)
+        proc_h = proc_h - (proc_h % 2)
+    else:
+        proc_w = orig_width - (orig_width % 2)
+        proc_h = orig_height - (orig_height % 2)
+
+    # Adaptive frame stride: For 24+ FPS videos, process at smooth 12-15 FPS.
+    # This maintains exact real-world playback duration while cutting CPU processing time by 50%-75%.
+    stride = 1
+    if fps_in >= 48.0:
+        stride = 4
+    elif fps_in >= 24.0:
+        stride = 2
+    fps_out = max(1.0, round(fps_in / stride, 2))
+
+    effective_total_frames = int(np.ceil(total_in_frames / stride)) if total_in_frames > 0 else 0
     max_frames = cfg_dict.get("max_frames", 0)
     if max_frames and max_frames > 0:
-        target_frames = min(total_in_frames, max_frames) if total_in_frames > 0 else max_frames
+        target_frames = min(effective_total_frames, max_frames) if effective_total_frames > 0 else max_frames
     else:
-        target_frames = total_in_frames  # 0 if unknown from container headers
+        target_frames = effective_total_frames
 
     with _JOBS_LOCK:
         job["total_frames"] = target_frames if target_frames > 0 else None
         job["fps_in"] = fps_in
-        job["resolution"] = f"{width}x{height}"
+        job["fps_out"] = fps_out
+        job["resolution"] = f"{proc_w}x{proc_h}"
 
-    writer, used_codec = init_video_writer(out_video_path, fps_in, width, height)
+    writer, used_codec = init_video_writer(out_video_path, fps_out, proc_w, proc_h)
 
     pipeline = get_cached_pipeline(config)
     pipeline.reset()
 
+    raw_frame_idx = 0
     frame_idx = 0
     latencies: List[float] = []
     telemetry_records: List[Dict[str, Any]] = []
@@ -349,10 +410,19 @@ def _run_job_worker(job_id: str) -> None:
 
             ret, frame = cap.read()
             if not ret or frame is None:
-                logger.info(f"Reached end of video stream at frame {frame_idx}.")
+                logger.info(f"Reached end of video stream at frame {frame_idx} (raw frame {raw_frame_idx}).")
                 break
 
+            raw_frame_idx += 1
+            if stride > 1 and (raw_frame_idx - 1) % stride != 0:
+                continue
+
             frame_idx += 1
+
+            # Downscale frame if needed for fast CPU inference and encoding
+            if (frame.shape[1], frame.shape[0]) != (proc_w, proc_h):
+                frame = cv2.resize(frame, (proc_w, proc_h), interpolation=cv2.INTER_AREA)
+
             result: PipelineFrameResult = pipeline.process_frame(frame, frame_index=frame_idx)
             latencies.append(result.total_latency_ms)
             telemetry_records.append(result.telemetry)
@@ -442,8 +512,8 @@ def _run_job_worker(job_id: str) -> None:
                     "total_frames": target_frames if target_frames > 0 else None,
                     "fps": round(result.effective_fps, 1),
                     "latency_ms": round(result.total_latency_ms, 1),
-                    "playback_fps": round(fps_in, 2),
-                    "output_duration_sec": round(frame_idx / fps_in, 2) if fps_in > 0 else 0.0,
+                    "playback_fps": round(fps_out, 2),
+                    "output_duration_sec": round(frame_idx / fps_out, 2) if fps_out > 0 else 0.0,
                     "object_count": result.detections.count if result.detections else (len(result.tracks.track_ids) if result.tracks else 0),
                     "active_tracks": len(result.tracks.track_ids) if result.tracks else 0,
                     "lane_status": lane_status,
@@ -505,8 +575,9 @@ def _run_job_worker(job_id: str) -> None:
             total_duration = max(0.001, time.perf_counter() - job["start_time"])
             avg_lat = sum(latencies) / len(latencies) if latencies else 0.0
             avg_fps = (frame_idx / total_duration) if total_duration > 0 else 0.0
-            output_dur = round(frame_idx / fps_in, 2) if fps_in > 0 else 0.0
-            input_dur = round(total_in_frames / fps_in, 2) if (total_in_frames > 0 and fps_in > 0) else output_dur
+            output_dur = round(frame_idx / fps_out, 2) if fps_out > 0 else 0.0
+            actual_in_frames = raw_frame_idx if raw_frame_idx > 0 else total_in_frames
+            input_dur = round(actual_in_frames / fps_in, 2) if (actual_in_frames > 0 and fps_in > 0) else output_dur
 
             # Compile unique detected/tracked objects observed throughout the video
             unique_class_counts: Dict[str, int] = {}
@@ -530,8 +601,10 @@ def _run_job_worker(job_id: str) -> None:
                 "input_source": str(input_path),
                 "summary": {
                     "processed_frames": frame_idx,
-                    "total_input_frames": total_in_frames if total_in_frames > 0 else frame_idx,
-                    "playback_fps": round(fps_in, 2),
+                    "total_input_frames": actual_in_frames if actual_in_frames > 0 else frame_idx,
+                    "playback_fps": round(fps_out, 2),
+                    "source_fps": round(fps_in, 2),
+                    "stride": stride,
                     "input_duration_sec": input_dur,
                     "output_duration_sec": output_dur,
                     "processing_duration_sec": round(total_duration, 2),
@@ -566,8 +639,10 @@ def _run_job_worker(job_id: str) -> None:
             job["telemetry_path"] = str(telemetry_path)
             job["summary"] = {
                 "processed_frames": frame_idx,
-                "total_input_frames": total_in_frames if total_in_frames > 0 else frame_idx,
-                "playback_fps": round(fps_in, 2),
+                "total_input_frames": actual_in_frames if actual_in_frames > 0 else frame_idx,
+                "playback_fps": round(fps_out, 2),
+                "source_fps": round(fps_in, 2),
+                "stride": stride,
                 "input_duration_sec": input_dur,
                 "output_duration_sec": output_dur,
                 "processing_duration_sec": round(total_duration, 2),
@@ -583,7 +658,7 @@ def _run_job_worker(job_id: str) -> None:
             }
             logger.info(
                 f"Job {job_id} successfully completed in {total_duration:.2f}s | "
-                f"Processed {frame_idx} frames | Output duration: {output_dur:.2f}s ({avg_fps:.1f} FPS throughput) | "
+                f"Processed {frame_idx} frames (stride {stride}) | Output duration: {output_dur:.2f}s ({avg_fps:.1f} FPS throughput) | "
                 f"Tracks observed: {total_unique_tracks} ({len(all_tracked_objects)} total objects)"
             )
 
