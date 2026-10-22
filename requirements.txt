@@ -11,7 +11,7 @@ ultralytics>=8.4.0
 lap>=0.5.13
 
 # Classical Computer Vision & Image Processing
-opencv-python>=4.8.0
+opencv-python-headless>=4.8.0
 numpy>=1.26.0
 pillow>=10.0.0
 

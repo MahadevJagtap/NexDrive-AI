@@ -1,24 +1,26 @@
-"""
+r"""
 Download and verify the pretrained BDD100K YOLOv8n detector from Hugging Face.
 Repository: dronefreak/bdd100k-yolov8n
 Checkpoint: best.pt
-Target path: D:\auto_drive\models\best.pt
+Target path: models/best.pt
 """
 import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 # Step 1: Securely load environment variables
-env_path = Path("D:/auto_drive/.env")
+env_path = PROJECT_ROOT / ".env"
 if env_path.exists():
     load_dotenv(dotenv_path=env_path)
 
-hf_home = os.getenv("HF_HOME", r"D:\auto_drive\models\cache")
+hf_home = os.getenv("HF_HOME", str(PROJECT_ROOT / "models" / "cache"))
 os.environ["HF_HOME"] = hf_home
 os.makedirs(hf_home, exist_ok=True)
 
-models_dir = Path(os.getenv("MODELS_DIR", r"D:\auto_drive\models"))
+models_dir = Path(os.getenv("MODELS_DIR", str(PROJECT_ROOT / "models")))
 models_dir.mkdir(parents=True, exist_ok=True)
 target_checkpoint = models_dir / "best.pt"
 
@@ -51,7 +53,7 @@ try:
         token=token,
         cache_dir=hf_home
     )
-    docs_dir = Path("D:/auto_drive/docs")
+    docs_dir = PROJECT_ROOT / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
     with open(readme_path, "r", encoding="utf-8") as f:
         readme_content = f.read()

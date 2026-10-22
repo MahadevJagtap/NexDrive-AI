@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: nexdrive-ai
+    runtime: python
+    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt && python scripts/download_model.py"
+    startCommand: "uvicorn server:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: PORT
+        value: 8000
+    plan: free
+    healthCheckPath: /api/health

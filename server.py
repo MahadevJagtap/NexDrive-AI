@@ -862,5 +862,5 @@ if __name__ == "__main__":
     print(f"  Local Dashboard URL: http://localhost:{port}")
     print(f"  REST API Base      : http://localhost:{port}/api")
     print(f"  Interactive Docs   : http://localhost:{port}/docs")
-    print("=" * 70)
-    uvicorn.run("server:app", host="127.0.0.1", port=port, reload=False, log_level="info")
+    host = os.environ.get("HOST", "0.0.0.0")
+    uvicorn.run("server:app", host=host, port=port, reload=False, log_level="info")
