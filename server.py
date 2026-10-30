@@ -463,9 +463,18 @@ def _run_job_worker(job_id: str) -> None:
 
     effective_total_frames = int(np.ceil(total_in_frames / stride)) if total_in_frames > 0 else 0
     max_frames = cfg_dict.get("max_frames", 0)
-    if _IS_RENDER and (not max_frames or max_frames <= 0 or max_frames > 90):
-        # Bound target frames on Render free tier to prevent container timeouts
-        max_frames = min(effective_total_frames, 90) if effective_total_frames > 0 else 90
+
+    # 3s / 5s short video clip duration support (cuts memory & completes in < 5 seconds)
+    clip_sec = cfg_dict.get("clip_seconds")
+    if clip_sec is not None and clip_sec > 0:
+        calculated_raw_limit = int(fps_in * clip_sec)
+        max_frames = int(np.ceil(calculated_raw_limit / stride))
+        logger.info(f"Clip duration set to {clip_sec}s: processing max {max_frames} frames.")
+    elif _IS_RENDER and (not max_frames or max_frames <= 0 or max_frames > 60):
+        # Default on Render free-tier cloud host: 3 seconds (max 45-60 frames) to guarantee zero memory overflow
+        default_cloud_sec = 3
+        max_frames = int(np.ceil(int(fps_in * default_cloud_sec) / stride))
+        logger.info(f"Render free tier default: 3s clip duration ({max_frames} frames) for instant execution.")
 
     if max_frames and max_frames > 0:
         target_frames = min(effective_total_frames, max_frames) if effective_total_frames > 0 else max_frames
@@ -803,6 +812,7 @@ async def start_processing_job(
     max_frames: int = Form(0),
     model_variant: str = Form("finetuned"),
     demo_mode: str = Form("balanced"),
+    clip_seconds: Optional[int] = Form(None),
     imgsz: Optional[int] = Form(None),
 ) -> Dict[str, Any]:
     """Uploads a video or selects a preset sample and queues a perception processing job."""
@@ -862,6 +872,7 @@ async def start_processing_job(
         "cancel_event": threading.Event(),
         "config": {
             "demo_mode": demo_mode,
+            "clip_seconds": clip_seconds,
             "imgsz": imgsz,
             "enable_tracking": enable_tracking,
             "enable_lanes": enable_lanes,

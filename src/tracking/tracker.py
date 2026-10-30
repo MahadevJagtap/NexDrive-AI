@@ -113,17 +113,28 @@ class RoadObjectTracker:
 
         t0 = time.perf_counter()
 
-        # Execute YOLO with ByteTrack persistence
-        results = self.model.track(
-            source=frame,
-            conf=self.conf_thresh,
-            iou=self.iou_thresh,
-            imgsz=self.imgsz,
-            tracker=self.tracker_type,
-            persist=True,
-            device=self.device,
-            verbose=False,
-        )
+        # Execute YOLO with ByteTrack persistence (with graceful predict fallback)
+        try:
+            results = self.model.track(
+                source=frame,
+                conf=self.conf_thresh,
+                iou=self.iou_thresh,
+                imgsz=self.imgsz,
+                tracker=self.tracker_type,
+                persist=True,
+                device=self.device,
+                verbose=False,
+            )
+        except Exception as track_err:
+            logger.warning(f"ByteTrack association error ({track_err}); falling back to standard YOLO predict.")
+            results = self.model.predict(
+                source=frame,
+                conf=self.conf_thresh,
+                iou=self.iou_thresh,
+                imgsz=self.imgsz,
+                device=self.device,
+                verbose=False,
+            )
 
         latency_ms = (time.perf_counter() - t0) * 1000.0
 

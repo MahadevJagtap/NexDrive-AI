@@ -8,7 +8,7 @@ torchvision>=0.17.0
 
 # Road Object Detection & Tracking
 ultralytics>=8.4.0
-lap>=0.5.13
+lapx>=0.5.2
 
 # Classical Computer Vision & Image Processing
 opencv-python-headless>=4.8.0

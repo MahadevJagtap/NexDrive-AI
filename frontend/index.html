@@ -167,6 +167,51 @@
             </div>
           </div>
 
+          <!-- CLIP DURATION SELECTOR (3s, 5s, Full) -->
+          <div class="demo-modes-container" style="margin-top: 1rem;">
+            <div class="demo-modes-header">
+              <span class="demo-modes-label">⏱️ Clip Duration</span>
+              <span id="clip-duration-desc" class="demo-modes-sub">3 Seconds (Fast): ~45 frames &bull; Instant cloud detection without memory limit</span>
+            </div>
+            <div class="mode-cards-grid">
+              <label class="mode-card active" for="dur-3s">
+                <input type="radio" name="clip-duration" id="dur-3s" value="3" checked>
+                <div class="mode-card-content">
+                  <div class="mode-card-top">
+                    <span class="mode-icon">⚡</span>
+                    <span class="mode-title">3 Seconds</span>
+                    <span class="mode-pill mode-pill-fast">Instant</span>
+                  </div>
+                  <p class="mode-desc">Best for 512MB cloud free-tier (~45 frames, &lt;3s run)</p>
+                </div>
+              </label>
+
+              <label class="mode-card" for="dur-5s">
+                <input type="radio" name="clip-duration" id="dur-5s" value="5">
+                <div class="mode-card-content">
+                  <div class="mode-card-top">
+                    <span class="mode-icon">⏱️</span>
+                    <span class="mode-title">5 Seconds</span>
+                    <span class="mode-pill mode-pill-recommended">Recommended</span>
+                  </div>
+                  <p class="mode-desc">Standard demonstration sequence (~75 frames)</p>
+                </div>
+              </label>
+
+              <label class="mode-card" for="dur-full">
+                <input type="radio" name="clip-duration" id="dur-full" value="0">
+                <div class="mode-card-content">
+                  <div class="mode-card-top">
+                    <span class="mode-icon">🎬</span>
+                    <span class="mode-title">Full Video</span>
+                    <span class="mode-pill mode-pill-quality">All Frames</span>
+                  </div>
+                  <p class="mode-desc">Processes entire highway driving video sequence</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <!-- Compact Analysis Options Grid -->
           <div class="options-grid">
             <label class="option-card" for="opt-detection">

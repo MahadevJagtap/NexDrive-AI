@@ -10,7 +10,8 @@
   const state = {
     backendOnline: false,
     inputMode: 'demo', // 'demo' | 'upload'
-    demoMode: 'balanced', // 'fast' | 'balanced' | 'quality'
+    demoMode: 'fast', // 'fast' | 'balanced' | 'quality'
+    clipDuration: 3, // 3 | 5 | 0 (full)
     selectedFile: null,
     activeJobId: null,
     pollingInterval: null,
@@ -161,6 +162,17 @@
       }
     });
 
+    // Step 2: Clip Duration Modes
+    ['3s', '5s', 'full'].forEach(durKey => {
+      const radio = document.getElementById(`dur-${durKey}`);
+      if (radio) {
+        radio.addEventListener('change', () => {
+          const val = (durKey === '3s') ? 3 : (durKey === '5s' ? 5 : 0);
+          selectClipDuration(val);
+        });
+      }
+    });
+
     // Step 2: Depth speed notice toggle
     elements.optDepth.addEventListener('change', () => {
       elements.depthNotice.classList.toggle('hidden', !elements.optDepth.checked);
@@ -217,6 +229,32 @@
 
     if (elements.advImgsz) {
       elements.advImgsz.value = (mode === 'fast') ? '512' : '640';
+    }
+  }
+
+  // --- CLIP DURATION MODES ---
+  function selectClipDuration(duration) {
+    state.clipDuration = parseInt(duration, 10);
+    ['3s', '5s', 'full'].forEach(d => {
+      const label = document.querySelector(`label[for="dur-${d}"]`);
+      const radio = document.getElementById(`dur-${d}`);
+      const isTarget = (d === '3s' && state.clipDuration === 3) || (d === '5s' && state.clipDuration === 5) || (d === 'full' && state.clipDuration === 0);
+      if (label) {
+        label.classList.toggle('active', isTarget);
+      }
+      if (radio) {
+        radio.checked = isTarget;
+      }
+    });
+
+    const descMap = {
+      3: '3 Seconds (Fast): ~45 frames • Instant cloud detection without memory limit',
+      5: '5 Seconds: ~75 frames • Standard road perception sequence',
+      0: 'Full Video: All available video frames',
+    };
+    const descEl = document.getElementById('clip-duration-desc');
+    if (descEl) {
+      descEl.textContent = descMap[state.clipDuration] || descMap[3];
     }
   }
 
@@ -364,7 +402,8 @@
     formData.append('conf_thresh', parseFloat(elements.advConf.value));
     formData.append('max_frames', parseInt(elements.advMaxFrames.value, 10));
     formData.append('model_variant', elements.advModel.value);
-    formData.append('demo_mode', state.demoMode || 'balanced');
+    formData.append('demo_mode', state.demoMode || 'fast');
+    formData.append('clip_seconds', state.clipDuration !== undefined ? state.clipDuration : 3);
     const imgszVal = elements.advImgsz ? parseInt(elements.advImgsz.value, 10) : ((state.demoMode === 'fast') ? 512 : 640);
     formData.append('imgsz', imgszVal);
 
