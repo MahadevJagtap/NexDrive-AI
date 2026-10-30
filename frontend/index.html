@@ -210,6 +210,14 @@
                 </div>
               </label>
             </div>
+
+            <!-- Cloud Free-Tier Memory & Duration Notice -->
+            <div class="cloud-memory-notice">
+              <span class="notice-icon">💡</span>
+              <div class="notice-text">
+                <strong>Why 3s or 5s clips?</strong> To operate reliably within free cloud container resources (512MB RAM ceiling) and prevent container restarts, cloud analysis executes in short highlight clips (~45–75 frames). Full unconstrained 4K videos run locally on desktop workstations.
+              </div>
+            </div>
           </div>
 
           <!-- Compact Analysis Options Grid -->
@@ -387,6 +395,10 @@
             <span class="proc-stat-label">Analyzed Frames</span>
             <span id="proc-val-analyzed" class="proc-stat-val">0 (Inference)</span>
           </div>
+        </div>
+
+        <div class="proc-cloud-badge">
+          <span>☁️ Cloud Memory-Safe Preview: Running 3-second highlight (~45 frames) to stay within 512MB RAM and deliver instant results.</span>
         </div>
 
         <div class="processing-actions">

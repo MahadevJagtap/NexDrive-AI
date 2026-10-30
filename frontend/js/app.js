@@ -450,8 +450,11 @@
       const jobData = await res.json();
       state.activeJobId = jobData.job_id;
 
-      elements.processingTitle.textContent = 'Analyzing Frames...';
-      elements.processingSubtitle.textContent = 'Running object detection, tracking, and lane boundary fitting';
+      const durSec = state.clipDuration || 3;
+      const durTitle = durSec > 0 ? `Analyzing ${durSec}-Second Driving Clip...` : 'Analyzing Full Video...';
+      const durSub = durSec > 0 ? `Processing ${durSec}s highlight (~${durSec * 15} frames) • Optimized to protect 512MB cloud memory ceiling` : 'Running object detection, tracking, and lane boundary fitting';
+      elements.processingTitle.textContent = durTitle;
+      elements.processingSubtitle.textContent = durSub;
 
       // Start Polling Job Status
       startJobPolling(jobData.job_id);
@@ -585,7 +588,8 @@
     const activeMode = (s.demo_mode || state.demoMode || 'Balanced').toUpperCase();
     const analyzedCount = s.analyzed_frames || frames;
 
-    elements.bannerSummary.textContent = `Mode: ${activeMode} • Processed full video: ${frames} frames (${analyzedCount} analyzed) • Video duration: ${outDur}s (Source: ${inDur}s @ ${playFps} FPS) • Completed in ${procTime}s (${throughput} FPS throughput)`;
+    const durLabel = state.clipDuration ? `${state.clipDuration}s Highlight Clip` : 'Full Video Sequence';
+    elements.bannerSummary.textContent = `${durLabel} (${frames} frames • ${analyzedCount} inferences) • Duration: ${outDur}s • Completed in ${procTime}s (${throughput} FPS) • Cloud memory-safe preview (<512MB RAM ceiling)`;
 
     // Configure Download Links
     const videoDownloadUrl = `/api/jobs/${job.job_id}/video?download=1`;
