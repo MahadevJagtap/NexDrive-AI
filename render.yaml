@@ -13,5 +13,9 @@ services:
         value: "1"
       - key: TORCH_NUM_THREADS
         value: "1"
+      - key: MALLOC_ARENA_MAX
+        value: "1"
+      - key: RENDER
+        value: "true"
     plan: free
     healthCheckPath: /health

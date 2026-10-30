@@ -242,8 +242,45 @@ def test_api_process_with_segmentation_and_depth():
 
 
 def test_frontend_index_serving():
-    """Verify GET / serves HTML dashboard."""
+    """Verify GET / serves HTML dashboard with Demo Mode cards."""
     res = client.get("/")
     assert res.status_code == 200
     assert "Autonomous Driving Perception Stack" in res.text
     assert "video-viewport" in res.text
+    assert "mode-fast" in res.text
+    assert "mode-balanced" in res.text
+    assert "mode-quality" in res.text
+
+
+def test_api_process_demo_modes():
+    """Verify end-to-end processing under Balanced Demo Mode."""
+    res = client.post(
+        "/api/process",
+        data={
+            "sample_id": "demo_banner",
+            "demo_mode": "balanced",
+            "model_variant": "finetuned",
+            "max_frames": 3,
+        },
+    )
+    assert res.status_code == 200
+    job_id = res.json()["job_id"]
+
+    completed = False
+    data = None
+    for _ in range(60):
+        time.sleep(0.5)
+        poll_res = client.get(f"/api/jobs/{job_id}")
+        data = poll_res.json()
+        if data["status"] in ("completed", "failed", "cancelled"):
+            completed = True
+            break
+
+    assert completed is True
+    assert data["status"] == "completed"
+    assert data["current_frame"] == 3
+    assert data["summary"]["demo_mode"] == "balanced"
+    assert "analyzed_frames" in data["summary"]
+    assert "avg_throughput_fps" in data["summary"]
+    assert data["live_metrics"]["demo_mode"] == "balanced"
+

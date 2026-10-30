@@ -118,7 +118,52 @@
             <span class="step-num">2</span>
             <div>
               <h2 class="step-title">Choose What to Analyze</h2>
-              <p class="step-subtitle">Configure the vision modules to run on the road video.</p>
+              <p class="step-subtitle">Configure the vision modules and performance preset for your demonstration.</p>
+            </div>
+          </div>
+
+          <!-- DEMO PERFORMANCE MODES -->
+          <div class="demo-modes-container">
+            <div class="demo-modes-header">
+              <span class="demo-modes-label">⚡ Demo Preset Mode</span>
+              <span id="demo-mode-desc" class="demo-modes-sub">Balanced: 640px &bull; 1:2 tracking cadence &bull; ~18–25 FPS (Screen Recording Ready)</span>
+            </div>
+            <div class="mode-cards-grid">
+              <label class="mode-card" for="mode-fast">
+                <input type="radio" name="demo-mode" id="mode-fast" value="fast">
+                <div class="mode-card-content">
+                  <div class="mode-card-top">
+                    <span class="mode-icon">⚡</span>
+                    <span class="mode-title">Fast</span>
+                    <span class="mode-pill mode-pill-fast">Max Speed</span>
+                  </div>
+                  <p class="mode-desc">512px resolution, 2-frame tracking cadence, 4-frame lanes (25–35+ FPS)</p>
+                </div>
+              </label>
+
+              <label class="mode-card active" for="mode-balanced">
+                <input type="radio" name="demo-mode" id="mode-balanced" value="balanced" checked>
+                <div class="mode-card-content">
+                  <div class="mode-card-top">
+                    <span class="mode-icon">⚖️</span>
+                    <span class="mode-title">Balanced</span>
+                    <span class="mode-pill mode-pill-recommended">Recommended</span>
+                  </div>
+                  <p class="mode-desc">640px resolution, 2-frame tracking cadence, 3-frame lanes (18–25 FPS)</p>
+                </div>
+              </label>
+
+              <label class="mode-card" for="mode-quality">
+                <input type="radio" name="demo-mode" id="mode-quality" value="quality">
+                <div class="mode-card-content">
+                  <div class="mode-card-top">
+                    <span class="mode-icon">🎯</span>
+                    <span class="mode-title">Quality</span>
+                    <span class="mode-pill mode-pill-quality">High Fidelity</span>
+                  </div>
+                  <p class="mode-desc">640px resolution, every-frame analysis & tracking (10–14 FPS)</p>
+                </div>
+              </label>
             </div>
           </div>
 
@@ -173,18 +218,28 @@
           <details class="advanced-details">
             <summary class="advanced-summary">
               <span>Advanced Settings</span>
-              <span class="summary-hint">Confidence threshold, frame limits, and models</span>
+              <span class="summary-hint">Confidence threshold, input dimension, and models</span>
             </summary>
             <div class="advanced-body">
               <div class="advanced-row">
                 <div class="form-field">
                   <label for="adv-model" class="field-label">YOLOv8 Detection Weights</label>
                   <select id="adv-model" class="field-select">
-                    <option value="baseline" selected>Baseline YOLOv8n (General Driving Objects)</option>
-                    <option value="finetuned">Fine-Tuned Mini BDD100K (Autonomous Driving)</option>
+                    <option value="finetuned" selected>Fine-Tuned BDD100K (86.4% Precision - Recommended)</option>
+                    <option value="baseline">Baseline YOLOv8n (General Driving Objects)</option>
                   </select>
                 </div>
 
+                <div class="form-field">
+                  <label for="adv-imgsz" class="field-label">Inference Resolution</label>
+                  <select id="adv-imgsz" class="field-select">
+                    <option value="640" selected>640 &times; 640 (High Fidelity)</option>
+                    <option value="512">512 &times; 512 (Fastest Inference)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="advanced-row">
                 <div class="form-field">
                   <label for="adv-max-frames" class="field-label">Frames to Analyze</label>
                   <select id="adv-max-frames" class="field-select">
@@ -195,9 +250,7 @@
                     <option value="300">300 frames (~10s clip)</option>
                   </select>
                 </div>
-              </div>
 
-              <div class="advanced-row">
                 <div class="form-field">
                   <div class="field-label-row">
                     <label for="adv-conf" class="field-label">Confidence Threshold</label>
@@ -205,7 +258,9 @@
                   </div>
                   <input type="range" id="adv-conf" min="0.10" max="0.90" step="0.05" value="0.25" class="field-range">
                 </div>
+              </div>
 
+              <div class="advanced-row">
                 <div class="form-field">
                   <label for="adv-lane-algo" class="field-label">Lane Detection Method</label>
                   <select id="adv-lane-algo" class="field-select">
@@ -263,6 +318,30 @@
         <div class="progress-stats">
           <span id="progress-frames">Waiting to start...</span>
           <span id="progress-percent">0%</span>
+        </div>
+
+        <!-- Live Telemetry Stats Dashboard -->
+        <div class="processing-stats-grid">
+          <div class="proc-stat-box">
+            <span class="proc-stat-label">Active Mode</span>
+            <span id="proc-val-mode" class="proc-stat-val">Balanced</span>
+          </div>
+          <div class="proc-stat-box">
+            <span class="proc-stat-label">Throughput Speed</span>
+            <span id="proc-val-fps" class="proc-stat-val">-- FPS</span>
+          </div>
+          <div class="proc-stat-box">
+            <span class="proc-stat-label">Elapsed Time</span>
+            <span id="proc-val-elapsed" class="proc-stat-val">0.0s</span>
+          </div>
+          <div class="proc-stat-box">
+            <span class="proc-stat-label">Est. Remaining</span>
+            <span id="proc-val-eta" class="proc-stat-val">Calculating...</span>
+          </div>
+          <div class="proc-stat-box">
+            <span class="proc-stat-label">Analyzed Frames</span>
+            <span id="proc-val-analyzed" class="proc-stat-val">0 (Inference)</span>
+          </div>
         </div>
 
         <div class="processing-actions">

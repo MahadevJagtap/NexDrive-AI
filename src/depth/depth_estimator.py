@@ -98,16 +98,8 @@ class MonocularDepthEstimator:
 
         with torch.no_grad():
             prediction = self.model(input_batch)
-
-            # Resize to original resolution
-            prediction = torch.nn.functional.interpolate(
-                prediction.unsqueeze(1),
-                size=(orig_h, orig_w),
-                mode="bicubic",
-                align_corners=False,
-            ).squeeze()
-
-            depth_np = prediction.cpu().numpy()
+            pred_np = prediction.squeeze().cpu().numpy()
+            depth_np = cv2.resize(pred_np, (orig_w, orig_h), interpolation=cv2.INTER_CUBIC)
 
         latency_ms = (time.perf_counter() - t0) * 1000.0
 

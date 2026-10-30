@@ -10,6 +10,7 @@
   const state = {
     backendOnline: false,
     inputMode: 'demo', // 'demo' | 'upload'
+    demoMode: 'balanced', // 'fast' | 'balanced' | 'quality'
     selectedFile: null,
     activeJobId: null,
     pollingInterval: null,
@@ -43,7 +44,9 @@
     btnRemoveFile: document.getElementById('btn-remove-file'),
     uploadError: document.getElementById('upload-error'),
 
-    // Step 2: Options
+    // Step 2: Demo Modes & Options
+    demoModeDesc: document.getElementById('demo-mode-desc'),
+    advImgsz: document.getElementById('adv-imgsz'),
     optDetection: document.getElementById('opt-detection'),
     optTracking: document.getElementById('opt-tracking'),
     optLanes: document.getElementById('opt-lanes'),
@@ -55,13 +58,18 @@
     advConfVal: document.getElementById('adv-conf-val'),
     advLaneAlgo: document.getElementById('adv-lane-algo'),
 
-    // Step 3: Action & Progress
+    // Step 3: Action & Progress Telemetry
     btnAnalyze: document.getElementById('btn-analyze'),
     processingTitle: document.getElementById('processing-title'),
     processingSubtitle: document.getElementById('processing-subtitle'),
     progressFill: document.getElementById('progress-fill'),
     progressFrames: document.getElementById('progress-frames'),
     progressPercent: document.getElementById('progress-percent'),
+    procValMode: document.getElementById('proc-val-mode'),
+    procValFps: document.getElementById('proc-val-fps'),
+    procValElapsed: document.getElementById('proc-val-elapsed'),
+    procValEta: document.getElementById('proc-val-eta'),
+    procValAnalyzed: document.getElementById('proc-val-analyzed'),
     btnCancel: document.getElementById('btn-cancel'),
 
     // Results: Summary Banner
@@ -145,6 +153,14 @@
 
     elements.dropZone.addEventListener('drop', handleFileDrop);
 
+    // Step 2: Performance Demo Modes
+    ['fast', 'balanced', 'quality'].forEach(mode => {
+      const radio = document.getElementById(`mode-${mode}`);
+      if (radio) {
+        radio.addEventListener('change', () => selectDemoMode(mode));
+      }
+    });
+
     // Step 2: Depth speed notice toggle
     elements.optDepth.addEventListener('change', () => {
       elements.depthNotice.classList.toggle('hidden', !elements.optDepth.checked);
@@ -174,6 +190,34 @@
     elements.playerSplitOrig.addEventListener('seeked', () => {
       elements.playerSplitAnnot.currentTime = elements.playerSplitOrig.currentTime;
     });
+  }
+
+  // --- DEMO PERFORMANCE MODES ---
+  function selectDemoMode(mode) {
+    state.demoMode = mode;
+    ['fast', 'balanced', 'quality'].forEach(m => {
+      const label = document.querySelector(`label[for="mode-${m}"]`);
+      if (label) {
+        label.classList.toggle('active', m === mode);
+      }
+      const radio = document.getElementById(`mode-${m}`);
+      if (radio) {
+        radio.checked = (m === mode);
+      }
+    });
+
+    const descMap = {
+      fast: 'Fast: 512px • 1:2 tracking cadence • 4-frame lanes • ~25–35+ FPS (Maximum Speed)',
+      balanced: 'Balanced: 640px • 1:2 tracking cadence • 3-frame lanes • ~18–25 FPS (Screen Recording Ready)',
+      quality: 'Quality: 640px • every-frame analysis & tracking • ~10–14 FPS (Maximum Detection Fidelity)',
+    };
+    if (elements.demoModeDesc) {
+      elements.demoModeDesc.textContent = descMap[mode] || descMap.balanced;
+    }
+
+    if (elements.advImgsz) {
+      elements.advImgsz.value = (mode === 'fast') ? '512' : '640';
+    }
   }
 
   // --- BACKEND HEALTH & SAMPLE CHECK ---
@@ -320,6 +364,9 @@
     formData.append('conf_thresh', parseFloat(elements.advConf.value));
     formData.append('max_frames', parseInt(elements.advMaxFrames.value, 10));
     formData.append('model_variant', elements.advModel.value);
+    formData.append('demo_mode', state.demoMode || 'balanced');
+    const imgszVal = elements.advImgsz ? parseInt(elements.advImgsz.value, 10) : ((state.demoMode === 'fast') ? 512 : 640);
+    formData.append('imgsz', imgszVal);
 
     // Transition UI to Processing Mode
     elements.setupSection.classList.add('hidden');
@@ -389,17 +436,17 @@
         const res = await fetch(`/api/jobs/${jobId}`);
         if (!res.ok) {
           failureCount++;
-          if (res.status === 404 && failureCount >= 3) {
+          if (res.status === 404 && failureCount >= 5) {
             clearInterval(state.pollingInterval);
             state.pollingInterval = null;
-            alert('The analysis job is no longer active on the server (the cloud container instance may have restarted). Please click "Start Perception Analysis" to run again.');
+            alert('The analysis job was cleared or the server restarted. Please click "Start Perception Analysis" with the Fast preset.');
             resetToSetupView();
             return;
           }
-          if (failureCount >= 10) {
+          if (failureCount >= 25) {
             clearInterval(state.pollingInterval);
             state.pollingInterval = null;
-            alert('Lost connection to the perception server. Please refresh the page and try again.');
+            alert('Lost connection to the perception server. Please refresh the page and try again with the Fast demo preset.');
             resetToSetupView();
             return;
           }
@@ -438,11 +485,32 @@
     }
 
     if (job.live_metrics) {
-      const fps = job.live_metrics.fps;
-      const playFps = job.live_metrics.playback_fps || 30.0;
-      const outDur = job.live_metrics.output_duration_sec || (job.current_frame ? (job.current_frame / playFps).toFixed(1) : 0);
+      const m = job.live_metrics;
+      const fps = m.fps || m.throughput_fps || 0;
+      const playFps = m.playback_fps || 30.0;
+      const outDur = m.output_duration_sec || (job.current_frame ? (job.current_frame / playFps).toFixed(1) : 0);
       if (fps > 0) {
         elements.processingSubtitle.textContent = `Analyzing at ${fps} FPS throughput • Processed duration: ${outDur}s (@ ${playFps} FPS)`;
+      }
+
+      if (elements.procValMode) {
+        elements.procValMode.textContent = (m.demo_mode || state.demoMode || 'Balanced').toUpperCase();
+      }
+      if (elements.procValFps) {
+        elements.procValFps.textContent = fps > 0 ? `${fps} FPS` : 'Measuring...';
+      }
+      if (elements.procValElapsed) {
+        elements.procValElapsed.textContent = `${m.elapsed_time_sec !== undefined ? m.elapsed_time_sec : 0}s`;
+      }
+      if (elements.procValEta) {
+        elements.procValEta.textContent = (m.estimated_remaining_sec !== undefined && m.estimated_remaining_sec > 0)
+          ? `${m.estimated_remaining_sec}s`
+          : (pct > 95 ? 'Finalizing...' : 'Calculating...');
+      }
+      if (elements.procValAnalyzed) {
+        const analyzed = m.analyzed_frames !== undefined ? m.analyzed_frames : job.current_frame;
+        const total = m.output_frames !== undefined ? m.output_frames : (job.current_frame || 0);
+        elements.procValAnalyzed.textContent = `${analyzed} / ${total} frames`;
       }
     }
   }
@@ -475,8 +543,10 @@
     const inDur = s.input_duration_sec !== undefined ? s.input_duration_sec : outDur;
     const procTime = s.processing_duration_sec || s.duration_sec || 0;
     const throughput = s.avg_throughput_fps || s.avg_fps || 0;
+    const activeMode = (s.demo_mode || state.demoMode || 'Balanced').toUpperCase();
+    const analyzedCount = s.analyzed_frames || frames;
 
-    elements.bannerSummary.textContent = `Processed full video: ${frames} frames • Video duration: ${outDur}s (Source: ${inDur}s @ ${playFps} FPS) • Completed in ${procTime}s (${throughput} FPS throughput)`;
+    elements.bannerSummary.textContent = `Mode: ${activeMode} • Processed full video: ${frames} frames (${analyzedCount} analyzed) • Video duration: ${outDur}s (Source: ${inDur}s @ ${playFps} FPS) • Completed in ${procTime}s (${throughput} FPS throughput)`;
 
     // Configure Download Links
     const videoDownloadUrl = `/api/jobs/${job.job_id}/video?download=1`;
@@ -550,7 +620,7 @@
     }
 
     elements.valSpeed.textContent = `${throughput} FPS`;
-    elements.subSpeed.textContent = `${s.avg_latency_ms || '--'} ms average latency`;
+    elements.subSpeed.textContent = `${s.avg_latency_ms || '--'} ms latency • ${activeMode} Mode`;
 
     // 4. Populate Detected Objects Table (C)
     renderObjectsTable(detectedObjects);

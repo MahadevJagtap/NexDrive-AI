@@ -31,8 +31,10 @@ class PipelineConfig:
     enable_tracking: bool = True
     enable_lanes: bool = True
     lane_method: str = "classical"  # 'classical' (OpenCV) or 'segmentation' (LRASPP)
+    lane_frequency: int = 1          # Run lane detection every N frames (1 = every frame)
     enable_depth: bool = False
     depth_frequency: int = 5         # Compute depth every N frames to conserve CPU
+    detection_cadence: int = 1       # Run detection/tracking every N frames (1 = every frame, 2 = alternate frames)
     conf_thresh: float = 0.25
     iou_thresh: float = 0.45
     imgsz: int = 640
@@ -110,12 +112,18 @@ class PerceptionPipeline:
             )
 
         self.last_depth_result: Optional[DepthResult] = None
+        self.last_lane_result: Optional[LaneDetectionResult] = None
+        self.last_track_result: Optional[TrackingResult] = None
+        self.last_det_result: Optional[DetectionResult] = None
         self.frame_counter = 0
 
     def reset(self) -> None:
         """Reset internal pipeline tracking and temporal states."""
         self.frame_counter = 0
         self.last_depth_result = None
+        self.last_lane_result = None
+        self.last_track_result = None
+        self.last_det_result = None
         if self.tracker:
             self.tracker.reset()
         if self.lane_detector and hasattr(self.lane_detector, "reset"):
@@ -144,39 +152,72 @@ class PerceptionPipeline:
         t_start = time.perf_counter()
         telemetry: Dict[str, Any] = {"frame": idx}
 
-        # 1. Lane Detection (independent of object detection)
+        # 1. Lane Detection (with frequency/cadence optimization)
         lane_res: Optional[LaneDetectionResult] = None
+        is_lane_analyzed = False
         if self.lane_detector:
-            lane_res = self.lane_detector.detect(frame)
-            telemetry["lane_latency_ms"] = round(lane_res.latency_ms, 2)
-            telemetry["lane_offset_px"] = round(lane_res.lane_center_offset_px, 1) if lane_res.lane_center_offset_px is not None else None
-            telemetry["lane_conf"] = round(lane_res.confidence, 2)
+            lane_freq = max(1, getattr(self.config, "lane_frequency", 1))
+            if (idx - 1) % lane_freq == 0 or self.last_lane_result is None:
+                lane_res = self.lane_detector.detect(frame)
+                self.last_lane_result = lane_res
+                is_lane_analyzed = True
+                telemetry["lane_latency_ms"] = round(lane_res.latency_ms, 2)
+            else:
+                lane_res = self.last_lane_result
+                telemetry["lane_latency_ms"] = 0.0
 
-        # 2. Tracking or Detection (single forward pass)
+            if lane_res:
+                telemetry["lane_offset_px"] = round(lane_res.lane_center_offset_px, 1) if lane_res.lane_center_offset_px is not None else None
+                telemetry["lane_conf"] = round(lane_res.confidence, 2)
+        telemetry["lane_analyzed"] = is_lane_analyzed
+
+        # 2. Tracking or Detection (with cadence optimization)
         track_res: Optional[TrackingResult] = None
         det_res: Optional[DetectionResult] = None
+        det_cadence = max(1, getattr(self.config, "detection_cadence", 1))
+        is_det_analyzed = False
 
         if self.tracker:
-            track_res = self.tracker.update(frame)
-            telemetry["perception_latency_ms"] = round(track_res.latency_ms, 2)
-            telemetry["object_count"] = track_res.count
+            if (idx - 1) % det_cadence == 0 or self.last_track_result is None:
+                track_res = self.tracker.update(frame)
+                self.last_track_result = track_res
+                is_det_analyzed = True
+                telemetry["perception_latency_ms"] = round(track_res.latency_ms, 2)
+            else:
+                track_res = self.last_track_result
+                telemetry["perception_latency_ms"] = 0.0
+
+            telemetry["object_count"] = track_res.count if track_res else 0
             telemetry["active_tracks"] = len(self.tracker.active_ids)
         elif self.detector:
-            det_res = self.detector.detect(frame)
-            telemetry["perception_latency_ms"] = round(det_res.inference_time_ms, 2)
-            telemetry["object_count"] = det_res.count
+            if (idx - 1) % det_cadence == 0 or self.last_det_result is None:
+                det_res = self.detector.detect(frame)
+                self.last_det_result = det_res
+                is_det_analyzed = True
+                telemetry["perception_latency_ms"] = round(det_res.inference_time_ms, 2)
+            else:
+                det_res = self.last_det_result
+                telemetry["perception_latency_ms"] = 0.0
+
+            telemetry["object_count"] = det_res.count if det_res else 0
+
+        telemetry["detection_analyzed"] = is_det_analyzed
 
         # 3. Optional Depth Estimation
         depth_res: Optional[DepthResult] = None
+        is_depth_analyzed = False
         if self.depth_estimator:
-            # Check depth frequency
-            if idx % self.config.depth_frequency == 0 or self.last_depth_result is None:
+            depth_freq = max(1, self.config.depth_frequency)
+            if (idx - 1) % depth_freq == 0 or self.last_depth_result is None:
                 depth_res = self.depth_estimator.estimate(frame)
                 self.last_depth_result = depth_res
+                is_depth_analyzed = True
                 telemetry["depth_latency_ms"] = round(depth_res.latency_ms, 2)
             else:
                 depth_res = self.last_depth_result
                 telemetry["depth_latency_ms"] = 0.0
+        telemetry["depth_analyzed"] = is_depth_analyzed
+        telemetry["is_analyzed"] = is_det_analyzed or is_lane_analyzed or is_depth_analyzed
 
         # 4. Unified Scene Rendering
         annotated = frame.copy()
@@ -307,19 +348,22 @@ class PerceptionPipeline:
         h, w = canvas.shape[:2]
         hud_h = 42
 
-        # Translucent top banner
-        overlay = canvas.copy()
-        cv2.rectangle(overlay, (0, 0), (w, hud_h), (20, 20, 20), -1)
-        canvas = cv2.addWeighted(overlay, 0.75, canvas, 0.25, 0)
+        # In-place translucent top banner (fast ROI blend without full canvas copies)
+        hud_roi = canvas[0:hud_h, 0:w]
+        banner_rect = np.full_like(hud_roi, 20)
+        canvas[0:hud_h, 0:w] = cv2.addWeighted(banner_rect, 0.75, hud_roi, 0.25, 0)
 
         # HUD Text components
         fps = telemetry.get("fps", 0.0)
         latency = telemetry.get("total_latency_ms", 0.0)
         tracks = telemetry.get("active_tracks", telemetry.get("object_count", 0))
         cpu_pct = psutil.cpu_percent()
+        mode_str = telemetry.get("demo_mode", "")
+        mode_prefix = f"[{mode_str.upper()}] " if mode_str else ""
 
         hud_str = (
             f"PERCEPTION STACK | "
+            f"{mode_prefix}"
             f"FPS: {fps:.1f} | "
             f"Latency: {latency:.1f}ms | "
             f"Tracks: {tracks} | "
@@ -358,9 +402,9 @@ class PerceptionPipeline:
             badge_y = 48
             badge_w = 330
             badge_h = 28
-            badge_overlay = canvas.copy()
-            cv2.rectangle(badge_overlay, (badge_x, badge_y), (badge_x + badge_w, badge_y + badge_h), (20, 20, 20), -1)
-            canvas = cv2.addWeighted(badge_overlay, 0.75, canvas, 0.25, 0)
+            badge_roi = canvas[badge_y:badge_y + badge_h, badge_x:badge_x + badge_w]
+            badge_rect = np.full_like(badge_roi, 20)
+            canvas[badge_y:badge_y + badge_h, badge_x:badge_x + badge_w] = cv2.addWeighted(badge_rect, 0.75, badge_roi, 0.25, 0)
             cv2.rectangle(canvas, (badge_x, badge_y), (badge_x + badge_w, badge_y + badge_h), hazard_color, 1)
 
             cv2.putText(
