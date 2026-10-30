@@ -472,20 +472,26 @@
     }
 
     let failureCount = 0;
+    let isPolling = false;
 
     state.pollingInterval = setInterval(async () => {
+      if (isPolling) return; // Prevent request piling when CPU is busy
+      isPolling = true;
+
       try {
-        const res = await fetch(`/api/jobs/${jobId}`);
+        const res = await fetch(`/api/jobs/${jobId}`, { cache: "no-store" });
         if (!res.ok) {
           failureCount++;
-          if (res.status === 404 && failureCount >= 5) {
+          // If server returned 404 (job purged or server rebooted)
+          if (res.status === 404 && failureCount >= 10) {
             clearInterval(state.pollingInterval);
             state.pollingInterval = null;
-            alert('The analysis job was cleared or the server restarted. Please click "Start Perception Analysis" with the Fast preset.');
+            alert('The analysis job was cleared or the server restarted. Please click "Start Perception Analysis" to run again.');
             resetToSetupView();
             return;
           }
-          if (failureCount >= 25) {
+          // If 502/503/504 gateway proxy hiccup from cloud host, give it up to 60 retries (~60 seconds)
+          if (failureCount >= 60) {
             clearInterval(state.pollingInterval);
             state.pollingInterval = null;
             alert('Lost connection to the perception server. Please refresh the page and try again with the Fast demo preset.');
@@ -510,9 +516,18 @@
           handleAnalysisFailed(job);
         }
       } catch (err) {
+        failureCount++;
         console.warn('Job polling warning:', err);
+        if (failureCount >= 60) {
+          clearInterval(state.pollingInterval);
+          state.pollingInterval = null;
+          alert('Network connection lost. Please check your internet connection or refresh the page.');
+          resetToSetupView();
+        }
+      } finally {
+        isPolling = false;
       }
-    }, 400);
+    }, 1000);
   }
 
   function updateProcessingProgress(job) {

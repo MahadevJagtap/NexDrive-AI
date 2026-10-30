@@ -24,7 +24,7 @@ import psutil
 # (e.g. Intel Core i5 quad-core) perform 2.3x faster when utilizing all 4 physical execution cores.
 _PHYSICAL_CORES = psutil.cpu_count(logical=False) or 4
 _OPTIMAL_THREADS = min(4, max(1, _PHYSICAL_CORES))
-_IS_RENDER = bool(os.environ.get("RENDER"))
+_IS_RENDER = bool(os.environ.get("RENDER")) or ("render" in os.environ.get("RENDER_INSTANCE_ID", "").lower()) or bool(os.environ.get("RENDER_SERVICE_ID"))
 
 if _IS_RENDER:
     _TARGET_THREADS = 1
@@ -386,20 +386,20 @@ def _run_job_worker(job_id: str) -> None:
         lane_freq = 3
         depth_freq = max(6, cfg_dict.get("depth_freq", 6))
 
-    # Render cloud free-tier memory & CPU guardrails (512MB RAM ceiling)
+    # Render cloud free-tier memory & CPU guardrails (512MB RAM ceiling, 0.1 CPU core)
     enable_depth = cfg_dict.get("enable_depth", False)
     if _IS_RENDER:
-        default_imgsz = min(default_imgsz, 416)
+        default_imgsz = min(default_imgsz, 320)
         detection_cadence = max(2, detection_cadence)
         lane_freq = max(3, lane_freq)
-        max_proc_width = 640
+        max_proc_width = 480
         if enable_depth:
             logger.warning("Render 512MB free tier detected: automatically disabling heavy depth model to prevent container OOM.")
             enable_depth = False
     else:
         max_proc_width = 1280
 
-    imgsz = min(cfg_dict.get("imgsz") or default_imgsz, 416 if _IS_RENDER else 1280)
+    imgsz = min(cfg_dict.get("imgsz") or default_imgsz, 320 if _IS_RENDER else 1280)
 
     # Select model checkpoint: fine-tuned checkpoint provides 86.4% precision and superior sign/car accuracy
     model_variant = cfg_dict.get("model_variant", "finetuned")
@@ -444,7 +444,7 @@ def _run_job_worker(job_id: str) -> None:
     if total_in_frames <= 0:
         total_in_frames = 0
 
-    # Memory-safe resolution capping: 640px on Render (saves ~4x RAM), 1280px on local desktop
+    # Memory-safe resolution capping: 480px on Render (ultra-lightweight & zero OOM), 1280px on local desktop
     MAX_PROC_WIDTH = max_proc_width
     if orig_width > MAX_PROC_WIDTH:
         scale = MAX_PROC_WIDTH / float(orig_width)
@@ -456,7 +456,7 @@ def _run_job_worker(job_id: str) -> None:
         proc_w = orig_width - (orig_width % 2)
         proc_h = orig_height - (orig_height % 2)
 
-    stride = 2 if _IS_RENDER else 1
+    stride = 3 if _IS_RENDER else 1
     if fps_in >= 50.0:
         stride = max(stride, 2)
     fps_out = max(1.0, round(fps_in / stride, 2))
@@ -464,14 +464,14 @@ def _run_job_worker(job_id: str) -> None:
     effective_total_frames = int(np.ceil(total_in_frames / stride)) if total_in_frames > 0 else 0
     max_frames = cfg_dict.get("max_frames", 0)
 
-    # 3s / 5s short video clip duration support (cuts memory & completes in < 5 seconds)
+    # 3s / 5s short video clip duration support (cuts memory & completes in < 15 seconds)
     clip_sec = cfg_dict.get("clip_seconds")
     if clip_sec is not None and clip_sec > 0:
         calculated_raw_limit = int(fps_in * clip_sec)
         max_frames = int(np.ceil(calculated_raw_limit / stride))
         logger.info(f"Clip duration set to {clip_sec}s: processing max {max_frames} frames.")
-    elif _IS_RENDER and (not max_frames or max_frames <= 0 or max_frames > 60):
-        # Default on Render free-tier cloud host: 3 seconds (max 45-60 frames) to guarantee zero memory overflow
+    elif _IS_RENDER and (not max_frames or max_frames <= 0 or max_frames > 45):
+        # Default on Render free-tier cloud host: 3 seconds (~30 frames at stride 3) for instant execution
         default_cloud_sec = 3
         max_frames = int(np.ceil(int(fps_in * default_cloud_sec) / stride))
         logger.info(f"Render free tier default: 3s clip duration ({max_frames} frames) for instant execution.")
@@ -1064,7 +1064,14 @@ if FRONTEND_DIR.exists():
                 status_code=404,
                 content={"error": "frontend/index.html not found"},
             )
-        return FileResponse(index_file)
+        return FileResponse(
+            index_file,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
 
     @app.get("/favicon.svg")
     @app.get("/favicon.ico")
