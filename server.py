@@ -31,6 +31,7 @@ if _IS_RENDER:
 else:
     _TARGET_THREADS = int(os.environ.get("TORCH_NUM_THREADS", str(_OPTIMAL_THREADS)))
 
+os.environ["MALLOC_ARENA_MAX"] = "1"
 os.environ["OMP_NUM_THREADS"] = str(_TARGET_THREADS)
 os.environ["OPENBLAS_NUM_THREADS"] = str(_TARGET_THREADS)
 os.environ["MKL_NUM_THREADS"] = str(_TARGET_THREADS)
