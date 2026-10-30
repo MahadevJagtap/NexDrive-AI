@@ -64,7 +64,7 @@ flowchart TD
     ACQUIRE --> COLOR
     COLOR --> CANNY --> HOUGH --> SMOOTH
     
-    ACQUIRE -.->|Enabled (Freq=N)| MIDAS
+    ACQUIRE -.->|"Enabled (Freq=N)"| MIDAS
     MIDAS -.-> PROX
     BYTE -.-> PROX
 

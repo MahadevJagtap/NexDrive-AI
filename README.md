@@ -21,7 +21,7 @@ flowchart TD
         DET --> TRK["ByteTrack Multi-Object Tracking"]
         PIPELINE --> LANE["Classical OpenCV Lane Detector"]
         PIPELINE -.->|Alternative| SEGLANE["Deep LRASPP Lane Segmentation"]
-        PIPELINE -.->|Optional (Freq=5)| DEPTH["MiDaS_small Relative Depth"]
+        PIPELINE -.->|"Optional (Freq=5)"| DEPTH["MiDaS_small Relative Depth"]
     end
 
     TRK --> FUSION["Spatial Association & HUD Engine"]
